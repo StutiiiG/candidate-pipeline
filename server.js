@@ -146,7 +146,7 @@ app.get("/api/health", (req, res) => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`\n🚀 Candidate Pipeline running at http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n Candidate Pipeline running at http://localhost:${PORT}`);
   console.log(`   API key: ${process.env.ANTHROPIC_API_KEY ? "✓ set" : "✗ missing — add to .env"}\n`);
 });
