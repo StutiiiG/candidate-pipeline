@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Candidate Intelligence Pipeline</title>
+<style>
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f3; --bg3: #eeede9;
+    --text: #1a1a19; --text2: #6b6b67; --text3: #9a9a96;
+    --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.18);
+    --blue: #185fa5; --blue-bg: #e6f1fb; --blue-text: #185fa5;
+    --green: #0f6e56; --green-bg: #e1f5ee; --green-text: #0f6e56;
+    --amber: #854f0b; --amber-bg: #faeeda; --amber-text: #854f0b;
+    --red: #a32d2d; --red-bg: #fcebeb; --red-text: #a32d2d;
+    --radius: 10px; --radius-sm: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a; --bg2: #252522; --bg3: #2e2e2b;
+      --text: #e8e8e3; --text2: #9a9a96; --text3: #5e5e5a;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+      --blue: #85b7eb; --blue-bg: #042c53; --blue-text: #85b7eb;
+      --green: #5dcaa5; --green-bg: #04342c; --green-text: #5dcaa5;
+      --amber: #ef9f27; --amber-bg: #412402; --amber-text: #ef9f27;
+      --red: #f09595; --red-bg: #501313; --red-text: #f09595;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+  .layout { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--bg2); border-right: 0.5px solid var(--border); padding: 24px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .logo { font-size: 15px; font-weight: 600; color: var(--text); padding: 0 8px 16px; border-bottom: 0.5px solid var(--border); margin-bottom: 8px; }
+  .logo span { font-weight: 400; color: var(--text2); }
+  .nav-item { padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text2); font-size: 13px; display: flex; align-items: center; gap: 8px; transition: background 0.15s; }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: var(--bg3); color: var(--text); font-weight: 500; }
+  .nav-icon { font-size: 14px; width: 18px; text-align: center; }
+  .sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 0.5px solid var(--border); }
+  .count-badge { margin-left: auto; background: var(--bg3); padding: 1px 7px; border-radius: 999px; font-size: 11px; color: var(--text2); }
+  .main { padding: 32px 36px; max-width: 820px; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: var(--text2); margin-bottom: 24px; }
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--text3); text-transform: uppercase; margin-bottom: 6px; }
+  .form-row { margin-bottom: 16px; }
+  textarea { width: 100%; background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; font-family: inherit; color: var(--text); resize: vertical; min-height: 100px; line-height: 1.6; outline: none; transition: border-color 0.15s; }
+  textarea:focus { border-color: var(--blue); }
+  .btn-primary { background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); padding: 9px 20px; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: opacity 0.15s; }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pipeline-track { display: flex; align-items: center; gap: 8px; margin: 20px 0; flex-wrap: wrap; }
+  .agent-chip { display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; border: 0.5px solid var(--border); font-size: 12px; color: var(--text2); background: var(--bg2); transition: all 0.2s; }
+  .agent-chip.active { border-color: var(--blue); color: var(--blue-text); background: var(--blue-bg); }
+  .agent-chip.done { border-color: var(--green); color: var(--green-text); background: var(--green-bg); }
+  .chip-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .chip-dot.pulse { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .track-arrow { color: var(--text3); font-size: 12px; }
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 12px; }
+  .card h3 { font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+  .verdict-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; margin-bottom: 10px; }
+  .verdict-badge.strong { background: var(--green-bg); color: var(--green-text); }
+  .verdict-badge.consider { background: var(--amber-bg); color: var(--amber-text); }
+  .verdict-badge.pass { background: var(--red-bg); color: var(--red-text); }
+  .score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .score-label { font-size: 12px; color: var(--text2); width: 130px; flex-shrink: 0; }
+  .score-bar-bg { flex: 1; height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .score-bar { height: 100%; border-radius: 3px; }
+  .score-num { font-size: 12px; font-weight: 500; width: 28px; text-align: right; flex-shrink: 0; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 11px; background: var(--bg2); color: var(--text2); margin: 2px; }
+  .tag.strength { background: var(--green-bg); color: var(--green-text); }
+  .tag.risk { background: var(--red-bg); color: var(--red-text); }
+  .tag.gap { background: var(--amber-bg); color: var(--amber-text); }
+  .tags-row { margin-bottom: 10px; }
+  .divider { height: 0.5px; background: var(--border); margin: 12px 0; }
+  .q-item { padding: 8px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; color: var(--text); line-height: 1.5; display: flex; gap: 8px; }
+  .q-item:last-child { border-bottom: none; }
+  .q-num { font-size: 10px; font-weight: 600; color: var(--text3); margin-top: 2px; flex-shrink: 0; background: var(--bg2); padding: 2px 5px; border-radius: 3px; }
+  .memory-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 0.5px solid var(--border); }
+  .memory-row:last-child { border-bottom: none; }
+  .memory-name { font-size: 13px; font-weight: 500; flex: 1; }
+  .memory-score { font-size: 13px; color: var(--text2); }
+  .empty { text-align: center; padding: 40px 0; color: var(--text3); font-size: 13px; }
+  .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .metric { background: var(--bg2); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .metric .val { font-size: 24px; font-weight: 600; color: var(--text); }
+  .metric .lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .arch-block { border-left: 2px solid var(--border2); padding-left: 14px; margin-bottom: 14px; }
+  .arch-block h4 { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .arch-block p { font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .error-box { background: var(--red-bg); color: var(--red-text); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; margin-top: 12px; }
+  .step-hint { font-size: 12px; color: var(--text2); margin-top: 8px; display: flex; align-items: center; gap: 5px; }
+  .next-step { background: var(--blue-bg); color: var(--blue-text); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  @media (max-width: 600px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .main { padding: 20px 16px; }
+    .metrics-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">Candidate Pipeline <span>/ AI</span></div>
+    <div class="nav-item active" onclick="nav('evaluate', this)"><span class="nav-icon">⚡</span>Evaluate<span class="count-badge" id="badge-evaluated">0</span></div>
+    <div class="nav-item" onclick="nav('memory', this)"><span class="nav-icon">🧠</span>Memory layer<span class="count-badge" id="badge-memory">0</span></div>
+    <div class="nav-item" onclick="nav('impact', this)"><span class="nav-icon">📊</span>Impact metrics</div>
+    <div class="nav-item" onclick="nav('architecture', this)"><span class="nav-icon">🔧</span>Architecture</div>
+    <div class="sidebar-footer">
+      <div class="nav-item" style="font-size:12px;color:var(--text3)"><span class="nav-icon">⬡</span>claude-sonnet-4</div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main">
+
+    <!-- EVALUATE PAGE -->
+    <div class="page active" id="page-evaluate">
+      <h1>Evaluate candidate</h1>
+      <p class="subtitle">Runs three sequential AI agents: intake → scoring → synthesis</p>
+
+      <div class="form-row">
+        <div class="section-label">Job description</div>
+        <textarea id="jd" rows="5" placeholder="Paste the job description...">Agentic Systems Intern at a crypto/DeFi investment firm. Responsibilities: design and deploy multi-agent systems for internal workflows (talent, onboarding, tooling). Requirements: MBA or engineering background, experience with LLMs and agents (LangChain, OpenAI), Python, systems thinking. Success = ship one agent system used by the team.</textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="section-label">Candidate profile</div>
+        <textarea id="candidate" rows="4" placeholder="Paste resume summary or key highlights...">Name: Alex Chen. MS Computer Science, Carnegie Mellon. 2 years as ML engineer at a fintech startup building recommendation systems. Side projects: built a LangChain agent that automates Notion task triage, used daily by 5 people. Familiar with Python, OpenAI API, some Zapier automation. No crypto experience. Wants to pivot into strategy + AI.</textarea>
+      </div>
+
+      <button class="btn-primary" id="run-btn" onclick="runPipeline()">Run pipeline →</button>
+
+      <div class="pipeline-track" id="pipeline-track" style="display:none">
+        <div class="agent-chip" id="chip-intake"><span class="chip-dot"></span>Intake agent</div>
+        <span class="track-arrow">→</span>
+        <div class="agent-chip" id="chip-scorer"><span class="chip-dot"></span>Scoring agent</div>
+        <span class="track-arrow">→</span>
+        <div class="agent-chip" id="chip-synthesizer"><span class="chip-dot"></span>Synthesis agent</div>
+        <span class="track-arrow">→</span>
+        <div class="agent-chip" id="chip-memory"><span class="chip-dot"></span>Memory write</div>
+      </div>
+
+      <div id="results"></div>
+      <div id="error-area"></div>
+    </div>
+
+    <!-- MEMORY PAGE -->
+    <div class="page" id="page-memory">
+      <h1>Memory layer</h1>
+      <p class="subtitle">All evaluations persist here — the foundation for ranking and feedback loops</p>
+      <div class="card">
+        <h3>All candidates</h3>
+        <div id="memory-all"><div class="empty">No candidates yet. Run an evaluation first.</div></div>
+      </div>
+      <div class="card">
+        <h3>Top ranked</h3>
+        <div id="memory-top"><div class="empty">Rankings appear after multiple evaluations.</div></div>
+      </div>
+    </div>
+
+    <!-- IMPACT PAGE -->
+    <div class="page" id="page-impact">
+      <h1>Impact metrics</h1>
+      <p class="subtitle">Quantified value generated by the pipeline</p>
+      <div class="metrics-grid">
+        <div class="metric"><div class="val" id="m-screened">0</div><div class="lbl">Candidates screened</div></div>
+        <div class="metric"><div class="val" id="m-time">0 min</div><div class="lbl">Manual time saved</div></div>
+        <div class="metric"><div class="val" id="m-cost">$0</div><div class="lbl">Estimated cost saved</div></div>
+      </div>
+      <div class="card">
+        <h3>Assumptions</h3>
+        <p style="font-size:13px;color:var(--text2);line-height:1.7">
+          Average manual screening time: <strong>25 min/candidate</strong><br>
+          Avg. recruiter hourly rate: <strong>$95/hr</strong><br>
+          Pipeline runtime per candidate: <strong>~90 seconds</strong><br>
+          Break-even point: <strong>1 candidate</strong>
+        </p>
+      </div>
+      <div class="card" id="verdict-breakdown">
+        <h3>Verdict breakdown</h3>
+        <div id="verdict-chart"><div class="empty">Run evaluations to see breakdown.</div></div>
+      </div>
+    </div>
+
+    <!-- ARCHITECTURE PAGE -->
+    <div class="page" id="page-architecture">
+      <h1>Architecture</h1>
+      <p class="subtitle">How the multi-agent pipeline is designed</p>
+      <div class="card">
+        <div class="arch-block">
+          <h4>Agent 1 — Intake agent</h4>
+          <p>Receives raw JD + candidate text. Normalizes into a structured JSON schema: requirements, strengths, gaps, match signals, red flags. Acts as the context assembly layer — downstream agents never touch unstructured text.</p>
+        </div>
+        <div class="arch-block">
+          <h4>Agent 2 — Scoring agent</h4>
+          <p>Receives structured output from Agent 1. Scores fit across 4 dimensions (technical, systems thinking, ownership, domain). Returns a calibrated verdict and confidence level. Prompt is carefully engineered for consistent, bias-reduced scoring.</p>
+        </div>
+        <div class="arch-block">
+          <h4>Agent 3 — Synthesis agent</h4>
+          <p>Receives profile + scores. Produces a hiring brief: summary, top strengths, key risks, 4 targeted interview questions, and recommended next step. Questions are generated against the candidate's specific gap profile.</p>
+        </div>
+        <div class="arch-block">
+          <h4>Memory layer</h4>
+          <p>Every evaluation is persisted with full structured output. Enables cross-candidate ranking, feedback loops, and — in a production system — score calibration based on downstream conversion data. Currently uses localStorage; swap for Postgres + pgvector for semantic candidate search.</p>
+        </div>
+        <div class="arch-block">
+          <h4>Stack</h4>
+          <p>Node.js + Express backend (API key stays server-side). Server-Sent Events for real-time pipeline streaming. Vanilla JS frontend, no build step. Deploy to Railway, Render, or any Node host in one command.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let memory = [];
+try { memory = JSON.parse(localStorage.getItem('cip_v2') || '[]'); } catch(e) {}
+
+function saveMemory() {
+  try { localStorage.setItem('cip_v2', JSON.stringify(memory.slice(0, 50))); } catch(e) {}
+  updateBadges();
+}
+
+function updateBadges() {
+  document.getElementById('badge-memory').textContent = memory.length;
+  document.getElementById('badge-evaluated').textContent = memory.length;
+}
+updateBadges();
+
+// ─── Nav ──────────────────────────────────────────────────────────────────────
+function nav(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  el.classList.add('active');
+  if (page === 'memory') renderMemory();
+  if (page === 'impact') renderImpact();
+}
+
+// ─── Chip state ───────────────────────────────────────────────────────────────
+function setChip(id, state) {
+  const el = document.getElementById('chip-' + id);
+  if (!el) return;
+  el.className = 'agent-chip ' + state;
+  const dot = el.querySelector('.chip-dot');
+  dot.className = 'chip-dot' + (state === 'active' ? ' pulse' : '');
+}
+
+// ─── Score color ──────────────────────────────────────────────────────────────
+function barColor(n) {
+  if (n >= 75) return '#1d9e75';
+  if (n >= 50) return '#ba7517';
+  return '#a32d2d';
+}
+
+// ─── Run pipeline ─────────────────────────────────────────────────────────────
+async function runPipeline() {
+  const jd = document.getElementById('jd').value.trim();
+  const cand = document.getElementById('candidate').value.trim();
+  if (!jd || !cand) return;
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  document.getElementById('pipeline-track').style.display = 'flex';
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('error-area').innerHTML = '';
+
+  ['intake','scorer','synthesizer','memory'].forEach(c => setChip(c, ''));
+
+  const agents = { intake: null, scorer: null, synthesizer: null };
+  let final = null;
+
+  const params = new URLSearchParams({ jd, candidate: cand });
+  const es = new EventSource(`/api/pipeline?${params}`);
+
+  es.addEventListener('agent_start', e => {
+    const { agent } = JSON.parse(e.data);
+    setChip(agent, 'active');
+  });
+
+  es.addEventListener('agent_done', e => {
+    const { agent, result } = JSON.parse(e.data);
+    agents[agent] = result;
+    setChip(agent, 'done');
+    if (agent === 'synthesizer') setChip('memory', 'active');
+  });
+
+  es.addEventListener('complete', e => {
+    final = JSON.parse(e.data);
+    setChip('memory', 'done');
+
+    memory.unshift({ ...final, id: Date.now() });
+    saveMemory();
+
+    renderResult(final);
+    btn.disabled = false;
+    btn.textContent = 'Run pipeline →';
+    es.close();
+  });
+
+  es.addEventListener('error', e => {
+    let msg = 'Pipeline error';
+    try { msg = JSON.parse(e.data).message; } catch(_) {}
+    document.getElementById('error-area').innerHTML = `<div class="error-box">⚠ ${msg}</div>`;
+    btn.disabled = false;
+    btn.textContent = 'Run pipeline →';
+    es.close();
+  });
+}
+
+// ─── Render result ────────────────────────────────────────────────────────────
+function renderResult(data) {
+  const { candidate, scores, synthesis } = data;
+  const vClass = scores.verdict === 'Strong hire' ? 'strong' : scores.verdict === 'Consider' ? 'consider' : 'pass';
+  const dims = [
+    { label: 'Technical fit', val: scores.technical_fit },
+    { label: 'Systems thinking', val: scores.systems_thinking },
+    { label: 'Ownership & drive', val: scores.ownership_drive },
+    { label: 'Domain fit', val: scores.domain_fit },
+  ];
+
+  document.getElementById('results').innerHTML = `
+    <div class="card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div>
+          <div style="font-size:16px;font-weight:600;margin-bottom:4px">${candidate.candidate_name || 'Candidate'}</div>
+          <div class="verdict-badge ${vClass}">${scores.verdict}</div>
+          <span style="font-size:11px;color:var(--text3);margin-left:6px">${scores.confidence} confidence</span>
+        </div>
+        <div style="text-align:right"><div style="font-size:28px;font-weight:600">${scores.overall}</div><div style="font-size:11px;color:var(--text2)">overall score</div></div>
+      </div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">${synthesis.summary}</p>
+      ${dims.map(d => `
+        <div class="score-row">
+          <span class="score-label">${d.label}</span>
+          <div class="score-bar-bg"><div class="score-bar" style="width:${d.val}%;background:${barColor(d.val)}"></div></div>
+          <span class="score-num" style="color:${barColor(d.val)}">${d.val}</span>
+        </div>`).join('')}
+      <div style="margin-top:8px;font-size:12px;color:var(--text3);font-style:italic">${scores.one_line_rationale}</div>
+    </div>
+
+    <div class="card">
+      <h3>Strengths & risks</h3>
+      <div class="tags-row">${(synthesis.top_strengths||[]).map(s => `<span class="tag strength">+ ${s}</span>`).join('')}</div>
+      <div class="tags-row">${(synthesis.key_risks||[]).map(r => `<span class="tag risk">⚠ ${r}</span>`).join('')}</div>
+      ${(candidate.key_gaps||[]).length ? `<div class="tags-row">${candidate.key_gaps.map(g => `<span class="tag gap">${g}</span>`).join('')}</div>` : ''}
+    </div>
+
+    <div class="card">
+      <h3>Interview questions</h3>
+      ${(synthesis.interview_questions||[]).map((q,i) => `
+        <div class="q-item"><span class="q-num">Q${i+1}</span><span>${q}</span></div>`).join('')}
+      <div class="divider"></div>
+      <div class="next-step">
+        <span>→</span><span><strong>Next step:</strong> ${synthesis.recommended_next_step}</span>
+      </div>
+    </div>
+  `;
+}
+
+// ─── Render memory ────────────────────────────────────────────────────────────
+function renderMemory() {
+  const all = document.getElementById('memory-all');
+  const top = document.getElementById('memory-top');
+  if (!memory.length) {
+    all.innerHTML = '<div class="empty">No candidates yet.</div>';
+    top.innerHTML = '<div class="empty">Rankings appear after multiple evaluations.</div>';
+    return;
+  }
+  all.innerHTML = memory.map(e => {
+    const s = e.scores || {};
+    const vClass = s.verdict === 'Strong hire' ? 'strong' : s.verdict === 'Consider' ? 'consider' : 'pass';
+    return `<div class="memory-row">
+      <span class="memory-name">${e.candidate?.candidate_name || 'Candidate'}</span>
+      <span class="memory-score">${s.overall || '—'}/100</span>
+      <span class="verdict-badge ${vClass}" style="margin:0">${s.verdict || '—'}</span>
+    </div>`;
+  }).join('');
+
+  const sorted = [...memory].sort((a,b) => (b.scores?.overall||0) - (a.scores?.overall||0)).slice(0,5);
+  const medals = ['🥇','🥈','🥉','4th','5th'];
+  top.innerHTML = sorted.map((e,i) => {
+    const s = e.scores || {};
+    const vClass = s.verdict === 'Strong hire' ? 'strong' : s.verdict === 'Consider' ? 'consider' : 'pass';
+    return `<div class="memory-row">
+      <span style="font-size:14px;width:24px">${medals[i]}</span>
+      <span class="memory-name">${e.candidate?.candidate_name || 'Candidate'}</span>
+      <span class="memory-score">${s.overall || '—'}/100</span>
+      <span class="verdict-badge ${vClass}" style="margin:0">${s.verdict || '—'}</span>
+    </div>`;
+  }).join('');
+}
+
+// ─── Render impact ────────────────────────────────────────────────────────────
+function renderImpact() {
+  const n = memory.length;
+  document.getElementById('m-screened').textContent = n;
+  document.getElementById('m-time').textContent = (n * 25) + ' min';
+  document.getElementById('m-cost').textContent = '$' + (n * 40).toLocaleString();
+
+  const counts = { 'Strong hire': 0, 'Consider': 0, 'Pass': 0 };
+  memory.forEach(e => { const v = e.scores?.verdict; if (v) counts[v] = (counts[v]||0) + 1; });
+  const vc = document.getElementById('verdict-chart');
+  if (!n) { vc.innerHTML = '<div class="empty">Run evaluations to see breakdown.</div>'; return; }
+  const colors = { 'Strong hire': '#0f6e56', 'Consider': '#854f0b', 'Pass': '#a32d2d' };
+  vc.innerHTML = Object.entries(counts).map(([v, c]) => `
+    <div class="score-row" style="margin-bottom:10px">
+      <span class="score-label">${v}</span>
+      <div class="score-bar-bg"><div class="score-bar" style="width:${n ? (c/n*100) : 0}%;background:${colors[v]}"></div></div>
+      <span class="score-num">${c}</span>
+    </div>`).join('');
+}
+</script>
+</body>
+</html>
